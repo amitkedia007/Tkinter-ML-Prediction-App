@@ -1,0 +1,1 @@
+# Automates running of tests
