@@ -1,58 +1,49 @@
 import pandas as pd
+import numpy as np
 
 class DataPreprocessor:
     def __init__(self, dataframe):
-        """
-        Initialize the DataPreprocessor with a pandas DataFrame.
-        :param dataframe: pandas DataFrame to be preprocessed.
-        """
         self.dataframe = dataframe
+        
 
-    def fill_mean(self, column):
-        """
-        Fill missing values with the mean for the specified column.
-        :param column: column name to fill with mean.
-        """
-        if column in self.dataframe.columns and self.dataframe[column].dtype in ['int64', 'float64']:
-            mean_value = self.dataframe[column].mean()
-            self.dataframe[column].fillna(mean_value, inplace=True)
-
-    def fill_unknown(self, column):
-        """
-        Fill missing values with 'Unknown' for the specified column.
-        :param column: column name to fill with 'Unknown'.
-        """
-        if column in self.dataframe.columns:
-            self.dataframe[column].fillna('Unknown', inplace=True)
-
-    def drop_columns(self, column):
-        """
-        Drop the specified column from the dataframe.
-        :param column: column name to drop.
-        """
-        if column in self.dataframe.columns:
-            self.dataframe.drop(columns=[column], axis=1, inplace=True)
-
-    def scale_data(self):
-        """
-        Scale all numeric columns using min-max scaling.
-        """
-        numeric_columns = self.dataframe.select_dtypes(include=['int64', 'float64']).columns
-        for column in numeric_columns:
-            min_value = self.dataframe[column].min()
-            max_value = self.dataframe[column].max()
-            range_value = max_value - min_value
-            if range_value > 0:
-                self.dataframe[column] = (self.dataframe[column] - min_value) / range_value
+    def fill_missing_values(self):
+        for column in self.dataframe.columns:
+            if self.dataframe[column].dtype in ['int64', 'float64']:
+                self.dataframe.loc[:, column].fillna(self.dataframe[column].mean(), inplace=True)
             else:
-                self.dataframe[column] = 0  # Handle the case where min and max are the same
+                self.dataframe[column].fillna(self.dataframe[column].mode()[0], inplace=True)
 
-    def convert_categorical(self, column):
-        """
-        Convert a categorical column to numeric using one-hot encoding.
-        :param column: column name to encode.
-        """
-        if column in self.dataframe.columns and self.dataframe[column].dtype == 'object':
-            one_hot = pd.get_dummies(self.dataframe[column], prefix=column)
-            self.dataframe = pd.concat([self.dataframe, one_hot], axis=1)
-            self.dataframe.drop(columns=[column], axis=1, inplace=True)
+    def drop_highly_correlated_columns(self, threshold=0.95):
+        corr_matrix = self.dataframe.corr().abs()
+        upper_triangle = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+        to_drop = [column for column in upper_triangle.columns if any(upper_triangle[column] > threshold)]
+        self.dataframe.drop(columns=to_drop, inplace=True)
+
+    def encode_categorical_variables(self):
+        categorical_cols = self.dataframe.select_dtypes(include=['object', 'category']).columns
+        self.dataframe = pd.get_dummies(self.dataframe, columns=categorical_cols, drop_first=True)
+
+    def apply_min_max_scaling(self):
+        numeric_cols = self.dataframe.select_dtypes(include=['int64', 'float64']).columns
+        for col in numeric_cols:
+            min_val = self.dataframe[col].min()
+            max_val = self.dataframe[col].max()
+            self.dataframe[col] = (self.dataframe[col] - min_val) / (max_val - min_val)
+
+    def preprocess_data(self, drop_correlated=True, scale_data=True):
+        self.fill_missing_values()
+        if drop_correlated:
+            self.drop_highly_correlated_columns()
+        self.encode_categorical_variables()
+        if scale_data:
+            self.apply_min_max_scaling()
+        return self.dataframe
+
+    def preprocess_target(self, target_dataframe, fill_strategy="mean"):
+        """Specific preprocessing for the target variable."""
+        if fill_strategy == "mean" and target_dataframe.dtype in ['int64', 'float64']:
+            return target_dataframe.fillna(target_dataframe.mean(), inplace=False)
+        elif fill_strategy == "mode":
+            return target_dataframe.fillna(target_dataframe.mode()[0], inplace=False)
+        # Add more conditions as needed for different types of targets
+        return target_dataframe

@@ -6,7 +6,7 @@ from tkinter import messagebox
 from data_handling.DatasetLoader import DatasetLoader
 from visualization.DataVisualizer import DataVisualizer
 from data_handling.DataPreprocessor import DataPreprocessor
-
+import pandas as pd
 class UIManager:
     def __init__(self, master):
         self.master = master
@@ -17,12 +17,11 @@ class UIManager:
         self.create_widgets()
         self.create_data_description_frame()  
         self.create_view_dataset_frame()      
-        self.dataset_loader = DatasetLoader(self.treeview, self.data_description_text, self.update_data_visualizer)  
-        self.data_visualizer = DataVisualizer(self.dataset_loader.dataframe)
+        self.dataset_loader = DatasetLoader(self.treeview, self.data_description_text, self.dataset_loaded)
+        self.data_visualizer = DataVisualizer(None)
+        self.create_preprocess_data_button() 
+        self.create_target_variable_selector()
         
-          # This will set up the UI
-
-
     def configure_gui(self):
         self.master.title('Boston House Price Prediction App')
         self.master.geometry('1300x800')
@@ -33,7 +32,7 @@ class UIManager:
         self.create_data_description_frame()
         self.create_view_dataset_frame()
         self.create_visualization_frame()
-        self.create_data_prep_frame()
+        # self.create_data_prep_frame()
         self.create_model_train_frame()
     
         # Upload Dataset Button
@@ -56,40 +55,115 @@ class UIManager:
         self.treeview.pack(expand=True, fill='both')
 
     def upload_dataset(self):
-        # Load the dataset here with a file dialog or similar method
-        self.dataframe = self.dataset_loader.load_dataset()
-
-        # Check if the DataFrame has been loaded correctly
-        if self.dataframe is not None:
-            self.data_preprocessor = DataPreprocessor(self.dataframe)
-            self.update_comboboxes()
+        loaded_dataframe = self.dataset_loader.load_dataset()
+        if loaded_dataframe is not None:
+            self.update_data_and_refresh_gui(loaded_dataframe)
 
 
     def dataset_loaded(self, dataframe):
-        # Now that the dataset is loaded, initialize the DataPreprocessor
-        self.data_preprocessor = DataPreprocessor(dataframe)
-        # Update the comboboxes with the column names
-        self.update_comboboxes()
-        # Refresh the data view part of the UI
-        self.refresh_data_viewer()
+        self.dataframe = dataframe  # Assuming this is where you store the loaded dataframe
+        self.data_visualizer.update_dataframe(dataframe)  # Update DataVisualizer with the loaded dataframe
+        self.refresh_data_viewer()  # Optionally refresh the UI, if applicable
+        self.target_dropdown['values'] = self.dataframe.columns.tolist()  # Update target variable selector, if you have one
 
-    def update_comboboxes(self):
-        # This method updates all comboboxes with the new columns from the loaded dataframe
-        if self.data_preprocessor:
-            column_names = self.data_preprocessor.dataframe.columns.tolist()
-            for combobox in self.preprocess_comboboxes.values():
-                combobox['values'] = column_names
-
-
-
-    def get_column_names(self):
-        # This method should return the list of column names from the dataframe
-        if self.data_preprocessor and hasattr(self.data_preprocessor, 'dataframe'):
-            return self.data_preprocessor.dataframe.columns.tolist()
+    def prepare_and_visualize_data(self):
+        if self.X_preprocessed is not None and self.Y_preprocessed is not None:
+            # Merge the preprocessed features and target
+            full_dataframe = pd.concat([self.X_preprocessed, self.Y_preprocessed], axis=1)
+            
+            # Update the visualizer's dataframe
+            self.data_visualizer.update_dataframe(full_dataframe)
+            
+            self.data_visualizer.show_box_plot()  
         else:
-            return []
+            messagebox.showinfo("Info", "Preprocessed data not available for visualization.")
 
 
+    def update_data_and_refresh_gui(self, new_dataframe):
+        """Updates the DataFrame in DataPreprocessor and refreshes the TreeView and other GUI components."""
+        self.dataframe = new_dataframe  
+        self.refresh_data_viewer()  
+        if self.data_visualizer:  
+            self.data_visualizer.update_dataframe(new_dataframe)
+
+    def create_target_variable_selector(self):
+        label = tk.Label(self.master, text="Select Target Variable:", bg='#345', fg='white')
+        label.place(relx=0.55, rely=0.48)
+
+        self.target_var = tk.StringVar()
+        self.target_dropdown = ttk.Combobox(self.master, textvariable=self.target_var)
+        self.target_dropdown.place(relx=0.55, rely=0.51, relwidth=0.4)
+
+        # Button to confirm selection
+        confirm_button = tk.Button(self.master, text="Confirm Target", command=self.confirm_target_selection)
+        confirm_button.place(relx=0.55, rely=0.55, relwidth=0.4, height=30)
+
+    def confirm_target_selection(self):
+        target_var = self.target_var.get()
+        if target_var:
+            # Split dataset into X and Y based on selected target variable
+            self.Y = self.dataframe[[target_var]]
+            self.X = self.dataframe.drop(columns=[target_var])
+            
+            # Here, call your preprocessing functions for X and Y separately
+            self.preprocess_features_and_target()
+            messagebox.showinfo("Success", f"Target variable '{target_var}' selected successfully.")
+        else:
+            messagebox.showinfo("Error", "Please select a target variable.")
+
+    def create_preprocess_data_button(self):
+        """Create the 'Preprocess the Data' button."""
+        preprocess_button = tk.Button(self.master, text="Preprocess the Data", command=self.initiate_preprocessing)
+        preprocess_button.place(relx=0.55, rely=0.42, relwidth=0.4, height=30) 
+    
+    def initiate_preprocessing(self):
+        """Handles the preprocessing initiation."""
+        if self.dataframe is not None and self.target_var.get():
+            self.preprocess_features_and_target()
+            self.refresh_tree_view_with_preprocessed_data()
+            messagebox.showinfo("Success", "Data preprocessing completed successfully.")
+        else:
+            messagebox.showinfo("Error", "Please load a dataset and select a target variable.")
+
+    def refresh_tree_view_with_preprocessed_data(self):
+        # Clear the treeview
+        self.treeview.delete(*self.treeview.get_children())
+
+        # Assuming X_preprocessed and Y_preprocessed are correctly set after preprocessing
+        # Merge them for display
+        full_df = pd.concat([self.X_preprocessed, self.Y_preprocessed], axis=1)
+
+        # Insert new rows into the treeview
+        for index, row in full_df.iterrows():
+            self.treeview.insert("", 'end', values=row.tolist())
+
+    def preprocess_features_and_target(self):
+        """Separates and preprocesses features and target."""
+        target_var = self.target_var.get()
+        if target_var:
+            self.Y = self.dataframe[[target_var]]
+            self.X = self.dataframe.drop(columns=[target_var])
+            
+            # Preprocess features
+            feature_preprocessor = DataPreprocessor(self.X)
+            self.X_preprocessed = feature_preprocessor.preprocess_data()
+            
+            # Preprocess target, adjust according to your DataPreprocessor capabilities
+            target_preprocessor = DataPreprocessor(self.Y)
+            self.Y_preprocessed = target_preprocessor.preprocess_data()  # Adjust if you have a specific method for target
+            
+            # Now you can update the UI or proceed to model training with preprocessed data
+            # e.g., self.refresh_data_viewer() with preprocessed data
+        else:
+            messagebox.showinfo("Error", "Target variable not set.")
+
+    # def get_column_names(self):
+    #     # This method should return the list of column names from the dataframe
+    #     if self.data_preprocessor and hasattr(self.data_preprocessor, 'dataframe'):
+    #         return self.data_preprocessor.dataframe.columns.tolist()
+    #     else:
+    #         return []
+    
     def create_visualization_frame(self):
         self.visualization_frame = tk.Frame(self.master, bg='#345')
         self.visualization_frame.place(relwidth=0.5, relheight=0.35, rely=0.48)
@@ -105,36 +179,7 @@ class UIManager:
             button = tk.Button(self.visualization_frame, text=button_text, command=button_command)
             button.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
 
-    def apply_preprocessing(self, action):
-        column_name = self.preprocess_entries[action].get().strip()  # Get the entered column name
-        if not column_name:
-            messagebox.showwarning("Warning", f"Please enter a column name for {action}.")
-            return
-        if column_name not in self.dataframe.columns:
-            messagebox.showerror("Error", f"Column '{column_name}' not found in the dataset.")
-            return
-        
-        # Execute the corresponding preprocessing method
-        try:
-            if action == "Fill Mean":
-                self.data_preprocessor.fill_mean(column_name)
-            elif action == "Fill Unknown":
-                self.data_preprocessor.fill_unknown(column_name)
-            elif action == "Drop Columns":
-                self.data_preprocessor.drop_columns(column_name)
-            elif action == "Convert Categorical":
-                self.data_preprocessor.convert_categorical(column_name)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-        else:
-            # Refresh the data viewer to reflect changes
-            self.refresh_data_viewer()
-
-    def scale_all_data(self):
-        # Call the scale_data method on all numeric columns
-        self.data_preprocessor.scale_data()
-        self.refresh_data_viewer()  # Refresh only the data viewer part of the UI
-
+    
     def refresh_data_viewer(self):
         if self.data_preprocessor and hasattr(self.data_preprocessor, 'dataframe'):
             self.treeview.delete(*self.treeview.get_children())
@@ -144,38 +189,37 @@ class UIManager:
             messagebox.showinfo("Info", "No data available to display.")
 
 
-    def create_data_prep_frame(self):
-        # Logic for creating data preparation frame
-        self.data_prep_frame = tk.Frame(self.master, bg='#345')
-        self.data_prep_frame.place(relx=0.5, relwidth=0.5, relheight=0.25, rely=0.48)
+    # def create_data_prep_frame(self):
+    #     # Logic for creating data preparation frame
+    #     self.data_prep_frame = tk.Frame(self.master, bg='#345')
+    #     self.data_prep_frame.place(relx=0.5, relwidth=0.5, relheight=0.25, rely=0.48)
 
-        self.create_data_preprocessing_section(self.data_prep_frame)
+    #     self.create_data_preprocessing_section(self.data_prep_frame)
 
-    def create_data_preprocessing_section(self, frame):
-    # Data Preprocessing Section
-        self.preprocess_entries = {}  # Dictionary to hold Entry widgets for each preprocessing action
+    # def create_data_preprocessing_section(self, frame):
+    # # Data Preprocessing Section
+    #     self.preprocess_entries = {}  # Dictionary to hold Entry widgets for each preprocessing action
 
-        # Define preprocessing actions
-        actions = ["Fill Mean", "Fill Unknown", "Drop Columns", "Convert Categorical"]
-        for i, action in enumerate(actions):
-            # Label for the action
-            tk.Label(frame, text=action, bg='#345', fg='white').grid(row=i, column=0, padx=10, pady=5, sticky="w")
+    #     # Define preprocessing actions
+    #     actions = ["Fill Mean", "Fill Unknown", "Drop Columns", "Convert Categorical"]
+    #     for i, action in enumerate(actions):
+    #         # Label for the action
+    #         tk.Label(frame, text=action, bg='#345', fg='white').grid(row=i, column=0, padx=10, pady=5, sticky="w")
             
-            # Entry for typing in the column name
-            action_entry = tk.Entry(frame)
-            action_entry.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
-            self.preprocess_entries[action] = action_entry
+    #         # Entry for typing in the column name
+    #         action_entry = tk.Entry(frame)
+    #         action_entry.grid(row=i, column=1, padx=10, pady=5, sticky="ew")
+    #         self.preprocess_entries[action] = action_entry
 
-            # Button to apply the preprocessing action
-            action_button = tk.Button(frame, text=action, command=lambda act=action: self.apply_preprocessing(act))
-            action_button.grid(row=i, column=2, padx=10, pady=5, sticky="ew")
+    #         # Button to apply the preprocessing action
+    #         action_button = tk.Button(frame, text=action, command=lambda act=action: self.apply_preprocessing(act))
+    #         action_button.grid(row=i, column=2, padx=10, pady=5, sticky="ew")
 
     # Update to ensure data_preprocessor is initialized with the dataframe when loaded
     def update_data_visualizer_and_preprocessor(self, dataframe):
         self.data_visualizer = DataVisualizer(dataframe)
         self.data_preprocessor = DataPreprocessor(dataframe)
-        # Update combobox choices with new columns
-        self.preprocess_comboboxes['column']['values'] = dataframe.columns.tolist()
+        
     
     def refresh_data_viewer(self):
         # Clear the current contents of the Treeview
@@ -204,14 +248,7 @@ class UIManager:
         train_button.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
 
     def update_data_visualizer(self, dataframe):
-        # This method will be called by DatasetLoader after the dataset is loaded
-        self.data_visualizer = DataVisualizer(dataframe)  # Update or create the DataVisualizer instance
-        # self.refresh_visualization_options()  # Update the visualization options if needed
-    
-    # def refresh_visualization_options(self):
-        # Enable visualization buttons or other elements as needed now that data is available
-        # pass
-
+        self.data_visualizer.dataframe = dataframe
 
     def open_training_window(self):
         # Placeholder for opening the training window logic

@@ -14,6 +14,10 @@ class DataVisualizer:
         """
         self.dataframe = dataframe
 
+
+    def update_dataframe(self, new_dataframe):
+        self.dataframe = new_dataframe
+
     def show_box_plot(self):
         if self.dataframe is None:
             messagebox.showwarning("Warning", "Please upload a dataset first.")
