@@ -9,6 +9,8 @@ import pandas as pd
 from dialogs.linear_regression_dialog import LinearRegressionDialog
 from dialogs.ridge_regression_dialog import RidgeRegressionDialog
 from dialogs.knn_dialog import KNNDialog
+from dialogs.decision_tree_dialog import DecisionTreeDialog
+
 class UIManager:
     def __init__(self, master):
         self.master = master
@@ -232,7 +234,6 @@ class UIManager:
         # Clear the current contents of the Treeview
         self.treeview.delete(*self.treeview.get_children())
 
-        # Assuming 'self.treeview' is already created and 
         # 'self.dataset_loader.dataframe' holds the updated data
         for index, row in self.dataset_loader.dataframe.iterrows():
             self.treeview.insert("", 'end', values=row.to_list())
@@ -302,6 +303,17 @@ class UIManager:
         else:
             messagebox.showinfo("Error", "Data not preprocessed or target variable not selected.")
 
+    def open_decision_tree_dialog(self):
+        if hasattr(self, 'X_preprocessed') and hasattr(self, 'Y_preprocessed'):
+            if not self.X_preprocessed.empty and not self.Y_preprocessed.empty:
+                dialog = DecisionTreeDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+                dialog.grab_set()  # Make the dialog modal, if necessary
+            else:
+                messagebox.showinfo("Info", "Please preprocess the data first.")
+        else:
+            messagebox.showinfo("Info", "Data not preprocessed or target variable not selected.")
+
+
     
     def open_training_window(self):
         selected_model = self.model_var.get()
@@ -320,42 +332,15 @@ class UIManager:
                 elif selected_model == "KNN":
                     dialog = KNNDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
                     dialog.grab_set()
-
-                # Add additional elif conditions here for other models like SVR, Decision Tree, etc.
+                elif selected_model == "Decision Tree":
+                    dialog = DecisionTreeDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+                    dialog.grab_set()
                 else:
                     messagebox.showinfo("Error", f"Model {selected_model} not supported yet.")
             else:
                 messagebox.showinfo("Error", "Please preprocess the data and set the target variable first.")
         else:
             messagebox.showinfo("Error", "Data not preprocessed or target variable not selected.")
-
-
-    # def open_training_window(self):
-    #     selected_model = self.model_var.get()
-
-    #     # Ensure the data has been preprocessed or loaded
-    #     if not self.X_preprocessed or not self.Y_preprocessed:
-    #         messagebox.showinfo("Error", "Please preprocess the data first.")
-    #         return
-
-    #     # Open the corresponding dialog based on the selected model
-    #     if selected_model == "Linear Regression":
-    #         dialog = LinearRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
-    #     # elif selected_model == "SVR":
-    #     #     # Assuming SVRDialog is defined
-    #     #     dialog = SVRDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
-    #     # elif selected_model == "Decision Tree":
-    #     #     # Assuming DecisionTreeDialog is defined
-    #     #     dialog = DecisionTreeDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
-    #     # elif selected_model == "Ridge Regression":
-    #     #     # Assuming RidgeRegressionDialog is defined
-    #     #     dialog = RidgeRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
-    #     else:
-    #         messagebox.showinfo("Error", "Model not supported.")
-    #         return
-
-    #     dialog.grab_set()  # Make the dialog modal if needed
-
     
     def run(self):
         self.master.mainloop()

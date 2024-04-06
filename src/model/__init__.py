@@ -1,6 +1,6 @@
 # models/__init__.py
 
 from .multiple_linear_regression import MultipleLinearRegression
-# from .svr import SVR
-# from .decision_tree import DecisionTree
+from .knn import K_Nearest_Neighbour
+from .decision_tree import DecisionTreeRegressor
 from .ridge_regression import RidgeRegression
