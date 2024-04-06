@@ -7,6 +7,10 @@ from data_handling.DatasetLoader import DatasetLoader
 from visualization.DataVisualizer import DataVisualizer
 from data_handling.DataPreprocessor import DataPreprocessor
 import pandas as pd
+from model import MultipleLinearRegression
+from dialogs.linear_regression_dialog import LinearRegressionDialog
+from dialogs.ridge_regression_dialog import RidgeRegressionDialog
+
 class UIManager:
     def __init__(self, master):
         self.master = master
@@ -21,6 +25,9 @@ class UIManager:
         self.data_visualizer = DataVisualizer(None)
         self.create_preprocess_data_button() 
         self.create_target_variable_selector()
+        self.X_preprocessed = pd.DataFrame()
+        self.Y_preprocessed = pd.DataFrame()
+
         
     def configure_gui(self):
         self.master.title('Boston House Price Prediction App')
@@ -163,6 +170,8 @@ class UIManager:
     #         return self.data_preprocessor.dataframe.columns.tolist()
     #     else:
     #         return []
+
+    # Visualization Related Functions
     
     def create_visualization_frame(self):
         self.visualization_frame = tk.Frame(self.master, bg='#345')
@@ -230,6 +239,17 @@ class UIManager:
         for index, row in self.dataset_loader.dataframe.iterrows():
             self.treeview.insert("", 'end', values=row.to_list())
 
+    def preprocess_data_and_update_ui(self):
+        if self.dataframe is not None:
+            preprocessor = DataPreprocessor(self.dataframe)
+            preprocessed_df = preprocessor.preprocess_data()  # Optionally, set drop_correlated, scale_data
+            self.preprocessed_dataframe = preprocessed_df  # Store the preprocessed dataframe for model training
+            self.refresh_data_viewer(preprocessed_df)  # Update UI, such as a TreeView, to reflect preprocessed data
+            messagebox.showinfo("Success", "Data preprocessing completed successfully.")
+        else:
+            messagebox.showinfo("Error", "No data loaded for preprocessing.")
+
+# All the Model training related functions 
 
     def create_model_train_frame(self):
         # Logic for creating model train frame
@@ -249,11 +269,81 @@ class UIManager:
 
     def update_data_visualizer(self, dataframe):
         self.data_visualizer.dataframe = dataframe
+    
+    
 
+    def open_linear_regression_dialog(self):
+        if hasattr(self, 'X') and hasattr(self, 'Y'):
+            # Check if X and Y have been set
+            if self.X is not None and self.Y is not None:
+                dialog = LinearRegressionDialog(self.master, self.X, self.Y)
+                dialog.grab_set()  # Make the dialog modal, if necessary
+            else:
+                messagebox.showinfo("Error", "Please preprocess the data and set the target variable first.")
+        else:
+            messagebox.showinfo("Error", "Data not preprocessed or target variable not selected.")
+
+    def open_ridge_regression_dialog(self):
+        if hasattr(self, 'X_preprocessed') and hasattr(self, 'Y_preprocessed'):
+            # Check if data is preprocessed
+            if not self.X_preprocessed.empty and not self.Y_preprocessed.empty:
+                dialog = RidgeRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+                dialog.grab_set() 
+            else:
+                messagebox.showinfo("Info", "Please preprocess the data first.")
+        else:
+            messagebox.showinfo("Info", "Data not preprocessed or target variable not selected.")
+    
     def open_training_window(self):
-        # Placeholder for opening the training window logic
-        pass
+        selected_model = self.model_var.get()
 
+        # Ensure the preprocessed data is available and not empty
+        if hasattr(self, 'X_preprocessed') and hasattr(self, 'Y_preprocessed'):
+            if not self.X_preprocessed.empty and not self.Y_preprocessed.empty:
+                if selected_model == "Linear Regression":
+                    # Open Linear Regression Dialog
+                    dialog = LinearRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+                    dialog.grab_set()
+                elif selected_model == "Ridge Regression":
+                    # Open Ridge Regression Dialog
+                    dialog = RidgeRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+                    dialog.grab_set()
+                # Add additional elif conditions here for other models like SVR, Decision Tree, etc.
+                else:
+                    messagebox.showinfo("Error", f"Model {selected_model} not supported yet.")
+            else:
+                messagebox.showinfo("Error", "Please preprocess the data and set the target variable first.")
+        else:
+            messagebox.showinfo("Error", "Data not preprocessed or target variable not selected.")
+
+
+    # def open_training_window(self):
+    #     selected_model = self.model_var.get()
+
+    #     # Ensure the data has been preprocessed or loaded
+    #     if not self.X_preprocessed or not self.Y_preprocessed:
+    #         messagebox.showinfo("Error", "Please preprocess the data first.")
+    #         return
+
+    #     # Open the corresponding dialog based on the selected model
+    #     if selected_model == "Linear Regression":
+    #         dialog = LinearRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+    #     # elif selected_model == "SVR":
+    #     #     # Assuming SVRDialog is defined
+    #     #     dialog = SVRDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+    #     # elif selected_model == "Decision Tree":
+    #     #     # Assuming DecisionTreeDialog is defined
+    #     #     dialog = DecisionTreeDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+    #     # elif selected_model == "Ridge Regression":
+    #     #     # Assuming RidgeRegressionDialog is defined
+    #     #     dialog = RidgeRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+    #     else:
+    #         messagebox.showinfo("Error", "Model not supported.")
+    #         return
+
+    #     dialog.grab_set()  # Make the dialog modal if needed
+
+    
     def run(self):
         self.master.mainloop()
 
