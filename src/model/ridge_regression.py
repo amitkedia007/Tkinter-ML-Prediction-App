@@ -9,11 +9,8 @@ class RidgeRegression:
         self.intercept_ = None
         
     def fit(self, X_train, y_train):
-        # Convert pandas DataFrame to numpy array if necessary
-        if isinstance(X_train, pd.DataFrame):
-            X_train = X_train.to_numpy()
-        if isinstance(y_train, (pd.Series, pd.DataFrame)):
-            y_train = y_train.to_numpy()
+        # Ensure X_train and y_train are numpy arrays
+        X_train, y_train = self._ensure_numpy(X_train, y_train)
         
         X_train_with_intercept = np.insert(X_train, 0, 1, axis=1)
         I_matrix = np.identity(X_train_with_intercept.shape[1])
@@ -23,42 +20,49 @@ class RidgeRegression:
         self.intercept_ = equation[0]
         self.coef_ = equation[1:]
 
-
     def predict(self, X_test):
-        # Convert pandas DataFrame to numpy array if necessary
+        # Ensure X_test is a numpy array
         if isinstance(X_test, pd.DataFrame):
             X_test = X_test.to_numpy()
         
-        # Predict target values
         return np.dot(X_test, self.coef_) + self.intercept_
 
     def score(self, X_test, y_true):
+        # Ensure X_test and y_true are numpy arrays
+        X_test, y_true = self._ensure_numpy(X_test, y_true)
+
         y_pred = self.predict(X_test)
-        mse = np.mean((y_true - y_pred) ** 2)  # Ensure mse is scalar
-        r_squared = 1 - np.sum((y_true - y_pred) ** 2) / np.sum((y_true - np.mean(y_true)) ** 2)  # Ensure r_squared is scalar
+        mse = np.mean((y_true - y_pred) ** 2)
+        total_variance = np.sum((y_true - np.mean(y_true)) ** 2)
+        explained_variance = np.sum((y_pred - np.mean(y_true)) ** 2)
+        r_squared = explained_variance / total_variance
 
         return mse, r_squared
 
-    
     def tune_and_fit(self, X_train, y_train, alphas):
         best_alpha = None
         best_score = float('inf')
-        best_r_squared = None  # Track the best R-squared value
+        best_r_squared = None
 
+        X_train, y_train = self._ensure_numpy(X_train, y_train)
+        print("Tuning Ridge Regression with the following alpha values:", alphas)
         for alpha in alphas:
             self.alpha = alpha
             self.fit(X_train, y_train)
-            mse, r_squared = self.score(X_train, y_train)  # Ensure score returns both MSE and R-squared
-            print(f"Testing alpha={alpha}: MSE={mse}, R-squared={r_squared}")  # Log progress
-
-            mse = mse.item() if isinstance(mse, pd.Series) else mse
-
+            mse, r_squared = self.score(X_train, y_train)
             if mse < best_score:
                 best_score = mse
                 best_alpha = alpha
-                best_r_squared = r_squared  # Update the best R-squared
-
+                best_r_squared = r_squared
+            print(f"Alpha: {alpha:10}, MSE: {mse:.4f}, R-squared: {r_squared:.4f}")  
         self.alpha = best_alpha
         self.fit(X_train, y_train)
-        return best_alpha, best_score, best_r_squared  # Return best R-squared along with alpha and MSE
+        return best_alpha, best_score, best_r_squared
 
+    def _ensure_numpy(self, X, y):
+        """Ensure X and y are numpy arrays."""
+        if isinstance(X, pd.DataFrame):
+            X = X.to_numpy()
+        if isinstance(y, (pd.Series, pd.DataFrame)):
+            y = y.to_numpy()
+        return X, y

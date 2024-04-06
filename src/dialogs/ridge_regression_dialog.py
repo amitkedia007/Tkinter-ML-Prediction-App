@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from model.ridge_regression import RidgeRegression 
-
+import numpy as np
 
 class RidgeRegressionDialog(tk.Toplevel):
     def __init__(self, master, X, Y, theme='#345'):
