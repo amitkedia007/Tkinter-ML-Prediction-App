@@ -1,16 +1,14 @@
 # File: gui/UIManager.py
 import tkinter as tk
 from tkinter import ttk
-from tkinter import filedialog
 from tkinter import messagebox
 from data_handling.DatasetLoader import DatasetLoader
 from visualization.DataVisualizer import DataVisualizer
 from data_handling.DataPreprocessor import DataPreprocessor
 import pandas as pd
-from model import MultipleLinearRegression
 from dialogs.linear_regression_dialog import LinearRegressionDialog
 from dialogs.ridge_regression_dialog import RidgeRegressionDialog
-
+from dialogs.knn_dialog import KNNDialog
 class UIManager:
     def __init__(self, master):
         self.master = master
@@ -259,7 +257,7 @@ class UIManager:
         model_label = tk.Label(self.model_train_frame, text="Select Model:", bg='#345', fg='white')
         model_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
 
-        model_options = ['Linear Regression', 'SVR', 'Decision Tree', 'Ridge Regression']
+        model_options = ['Linear Regression', 'KNN', 'Decision Tree', 'Ridge Regression']
         self.model_var = tk.StringVar()
         model_dropdown = ttk.Combobox(self.model_train_frame, textvariable=self.model_var, values=model_options)
         model_dropdown.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
@@ -294,6 +292,17 @@ class UIManager:
         else:
             messagebox.showinfo("Info", "Data not preprocessed or target variable not selected.")
     
+    def open_knn_dialog(self):
+        if hasattr(self, 'X_preprocessed') and hasattr(self, 'Y_preprocessed'):
+            if not self.X_preprocessed.empty and not self.Y_preprocessed.empty:
+                dialog = KNNDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+                dialog.grab_set()  # Make the dialog modal, if necessary
+            else:
+                messagebox.showinfo("Error", "Please preprocess the data and set the target variable first.")
+        else:
+            messagebox.showinfo("Error", "Data not preprocessed or target variable not selected.")
+
+    
     def open_training_window(self):
         selected_model = self.model_var.get()
 
@@ -308,6 +317,10 @@ class UIManager:
                     # Open Ridge Regression Dialog
                     dialog = RidgeRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
                     dialog.grab_set()
+                elif selected_model == "KNN":
+                    dialog = KNNDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
+                    dialog.grab_set()
+
                 # Add additional elif conditions here for other models like SVR, Decision Tree, etc.
                 else:
                     messagebox.showinfo("Error", f"Model {selected_model} not supported yet.")
