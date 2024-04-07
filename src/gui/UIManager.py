@@ -10,7 +10,7 @@ from dialogs.linear_regression_dialog import LinearRegressionDialog
 from dialogs.ridge_regression_dialog import RidgeRegressionDialog
 from dialogs.knn_dialog import KNNDialog
 from dialogs.decision_tree_dialog import DecisionTreeDialog
-
+from dialogs.lasso_dialog import LassoDialog
 class UIManager:
     def __init__(self, master):
         self.master = master
@@ -258,7 +258,7 @@ class UIManager:
         model_label = tk.Label(self.model_train_frame, text="Select Model:", bg='#345', fg='white')
         model_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
 
-        model_options = ['Linear Regression', 'KNN', 'Decision Tree', 'Ridge Regression']
+        model_options = ['Linear Regression', 'Ridge Regression', 'Lasso Regression', 'KNN', 'Decision Tree']
         self.model_var = tk.StringVar()
         model_dropdown = ttk.Combobox(self.model_train_frame, textvariable=self.model_var, values=model_options)
         model_dropdown.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
@@ -313,6 +313,15 @@ class UIManager:
         else:
             messagebox.showinfo("Info", "Data not preprocessed or target variable not selected.")
 
+    def open_lasso_regression_dialog(self):
+        if hasattr(self, 'X_preprocessed') and hasattr(self, 'Y_preprocessed'):
+            if not self.X_preprocessed.empty and not self.Y_preprocessed.empty:
+                dialog = LassoDialog(self.master, self.X_preprocessed.to_numpy(), self.Y_preprocessed.to_numpy())
+                dialog.grab_set()
+            else:
+                messagebox.showinfo("Error", "Please preprocess the data and set the target variable first.")
+        else:
+            messagebox.showinfo("Error", "Data not preprocessed or target variable not selected.")
 
     
     def open_training_window(self):
@@ -322,19 +331,16 @@ class UIManager:
         if hasattr(self, 'X_preprocessed') and hasattr(self, 'Y_preprocessed'):
             if not self.X_preprocessed.empty and not self.Y_preprocessed.empty:
                 if selected_model == "Linear Regression":
-                    # Open Linear Regression Dialog
-                    dialog = LinearRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
-                    dialog.grab_set()
+                    self.open_linear_regression_dialog()
                 elif selected_model == "Ridge Regression":
-                    # Open Ridge Regression Dialog
-                    dialog = RidgeRegressionDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
-                    dialog.grab_set()
+                    self.open_ridge_regression_dialog()
                 elif selected_model == "KNN":
-                    dialog = KNNDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
-                    dialog.grab_set()
+                    self.open_knn_dialog()
                 elif selected_model == "Decision Tree":
-                    dialog = DecisionTreeDialog(self.master, self.X_preprocessed, self.Y_preprocessed)
-                    dialog.grab_set()
+                    self.open_decision_tree_dialog()
+                elif selected_model == "Lasso Regression":
+                    self.open_lasso_regression_dialog()
+
                 else:
                     messagebox.showinfo("Error", f"Model {selected_model} not supported yet.")
             else:
