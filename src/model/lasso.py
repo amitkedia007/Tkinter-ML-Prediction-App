@@ -73,5 +73,5 @@ class LassoRegression:
             print(f"Lambda: {lambda_param}, Avg MSE: {avg_mse:.4f}, Avg R-squared: {avg_r_squared:.4f}")
 
         self.lambda_parameter = best_lambda
-        self.fit(X, y)  # Refit using all data and best lambda
+        self.fit(X, y) 
         return best_lambda, best_mse, best_r_squared

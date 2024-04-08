@@ -2,7 +2,7 @@ import numpy as np
 
 class DecisionTreeRegressor:
     def __init__(self, max_depth=None, min_samples_split=2, min_samples_leaf=1):
-        self.max_depth = max_depth if max_depth is not None else float('inf')
+        self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.tree = None
@@ -39,6 +39,14 @@ class DecisionTreeRegressor:
         return self.Node(feature_index=best_split["feature_index"], threshold=best_split["threshold"],
                         left=left_subtree, right=right_subtree)
 
+    def score(self, X_test, y_true):
+        y_pred = self.predict(X_test)
+        mse = np.mean((y_true - y_pred) ** 2)
+        ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+        ss_res = np.sum((y_true - y_pred) ** 2)
+        r_squared = 1 - (ss_res / ss_tot)
+
+        return mse, r_squared
 
     def _get_best_split(self, X, y, num_samples, num_features):
         best_split = {"gain": -float("inf")}
@@ -89,43 +97,40 @@ class DecisionTreeRegressor:
         else:
             return self._make_prediction(x, tree.right)
 
-    def tune_and_fit(self, X_train, y_train, X_val, y_val, max_depth_values):
-        best_max_depth = None
-        best_mse = float('inf')
-        best_r_squared = -float('inf')  # Initialize with a very low R-squared
-        
-        for depth in max_depth_values:
-            self.max_depth = depth
-            self.fit(X_train, y_train)
-            predictions = self.predict(X_val)
-            mse = np.mean((y_val - predictions) ** 2)
-            # Calculate R-squared
-            ss_res = np.sum((y_val - predictions) ** 2)
-            ss_tot = np.sum((y_val - np.mean(y_val)) ** 2)
-            r_squared = 1 - (ss_res / ss_tot)
-            
-            # Log for debugging
-            print(f"Testing max_depth={depth}: MSE={mse}, R-squared={r_squared}")
-            
-            if mse < best_mse or (mse == best_mse and r_squared > best_r_squared):
-                best_mse = mse
-                best_max_depth = depth
-                best_r_squared = r_squared
-        
-        # Re-fit the model with the best parameters found
-        self.max_depth = best_max_depth
-        self.fit(X_train, y_train)
-        
-        return best_max_depth, best_mse, best_r_squared
+    def cross_validate(self, X, y, max_depth_values, n_splits=5):
+        fold_sizes = (len(y) // n_splits) * np.ones(n_splits, dtype=np.int)
+        fold_sizes[:len(y) % n_splits] += 1
+        current = 0
+        scores = {depth: [] for depth in max_depth_values}
 
-    
-    def score(self, X_test, y_true):
-        y_pred = self.predict(X_test)
-        mse = np.mean((y_true - y_pred) ** 2)
+        for fold_size in fold_sizes:
+            start, stop = current, current + fold_size
+            X_train = np.concatenate([X[:start], X[stop:]])
+            y_train = np.concatenate([y[:start], y[stop:]])
+            X_test = X[start:stop]
+            y_test = y[start:stop]
+
+            for depth in max_depth_values:
+                self.max_depth = depth
+                self.fit(X_train, y_train)
+                mse, r_squared = self.score(X_test, y_test)
+                scores[depth].append((mse, r_squared))
+
+            current += fold_size
+
+        avg_scores = {depth: (np.mean([score[0] for score in scores[depth]]), np.mean([score[1] for score in scores[depth]])) for depth in max_depth_values}
         
-        ss_res = np.sum((y_true - y_pred) ** 2)
-        ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-        r_squared = 1 - (ss_res / ss_tot)
+        for depth, (avg_mse, avg_r_squared) in avg_scores.items():
+            print(f"Depth: {depth}, Avg MSE: {avg_mse:.4f}, Avg R-squared: {avg_r_squared:.4f}")
         
-        return mse, r_squared
+
+        best_depth = min(avg_scores, key=lambda depth: avg_scores[depth][0])
+        best_mse, best_r_squared = avg_scores[best_depth]
+
+        # Reset to the best depth and retrain on the entire dataset
+        self.max_depth = best_depth
+        self.fit(X, y)
+
+        print(f"Best Depth: {best_depth}, Avg MSE: {best_mse}, Avg R-squared: {best_r_squared}")
+        return best_depth, best_mse, best_r_squared
 

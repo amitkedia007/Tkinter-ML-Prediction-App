@@ -1,14 +1,16 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import numpy as np
-from model.knn import K_Nearest_Neighbour  
+from model.knn import K_Nearest_Neighbour
 
 class KNNDialog(tk.Toplevel):
     def __init__(self, master, X, Y, theme='#345'):
         super().__init__(master)
-        self.X = X.select_dtypes(include=[np.number]).values if X is not None else None
-        self.Y = Y.values if Y is not None else None
+        self.X = np.asarray(X) if X is not None else None
+        self.Y = np.asarray(Y).flatten() if Y is not None else None
         self.theme = theme
+        self.model = K_Nearest_Neighbour(k=3)
+        
         self.title('KNN Training')
         self.configure(bg=theme)
         self.geometry('600x500')
@@ -24,22 +26,23 @@ class KNNDialog(tk.Toplevel):
 
     def train_default(self):
         if self.X is not None and self.Y is not None:
-            # Use a fresh instance for default parameter training
-            default_model = K_Nearest_Neighbour(k=3)
-            default_model.fit(self.X, self.Y)
-            mse, r_squared = default_model.score(self.X, self.Y)
+            self.model.fit(self.X, self.Y)
+            score = self.model.score(self.X, self.Y)
+            # Check if score is a tuple (mse, r_squared) or a single value
+            if isinstance(score, tuple):
+                mse, r_squared = score
+            else:
+                mse = score
+                r_squared = None  # Or handle as appropriate
             self.display_results("Default K=3", mse, r_squared)
         else:
             messagebox.showerror("Error", "Data not available or not properly formatted.")
 
     def train_with_tuning(self):
         if self.X is not None and self.Y is not None:
-            # Use a fresh instance for hyperparameter tuning
-            tuning_model = K_Nearest_Neighbour()
             k_values = list(range(1, 21))
-            best_k, best_mse = tuning_model.tune_and_fit(self.X, self.Y, k_values)
-            mse, r_squared = tuning_model.score(self.X, self.Y)  # Recalculate with best k
-            self.display_results(f"Hyperparameters (Best K={best_k})", mse, r_squared)
+            best_k, best_mse, best_r_squared = self.model.cross_validate(self.X, self.Y, k_values, n_splits=5)
+            self.display_results(f"K-Fold CV Best K={best_k}", best_mse, best_r_squared) 
         else:
             messagebox.showerror("Error", "Data not available or not properly formatted.")
 
