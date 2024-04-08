@@ -8,14 +8,11 @@ class LassoRegression:
         self.weight = None
 
     def fit(self, X, Y):
-        X = np.asarray(X)
-        Y = np.asarray(Y).flatten()
-
         X = np.insert(X, 0, 1, axis=1)
         self.samples, self.features = X.shape
         self.weight = np.zeros(self.features)
 
-        for i in range(self.no_of_iterations):
+        for _ in range(self.no_of_iterations):
             self._update_weights(X, Y)
 
     def _update_weights(self, X, Y):
@@ -31,9 +28,6 @@ class LassoRegression:
             self.weight[j] -= self.learning_rate * dW[j]
 
     def predict(self, X):
-        X = np.asarray(X)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
         X = np.insert(X, 0, 1, axis=1)
         return np.dot(X, self.weight)
 
@@ -45,39 +39,39 @@ class LassoRegression:
         r_squared = 1 - (ss_res / ss_tot)
         return mse, r_squared
 
-    def tune_and_fit(self, X_train, y_train, X_val, y_val, lambda_params):
+    def tune_and_fit(self, X, y, lambda_params, k_folds):
         best_lambda = None
         best_mse = float('inf')
-        best_r_squared = -float('inf')  # Assuming you want to track the best R-squared
+        best_r_squared = -float('inf')
 
         for lambda_param in lambda_params:
-            # Set the current lambda parameter
             self.lambda_parameter = lambda_param
-
-            # Fit the model on the training data
-            self.fit(X_train, y_train)
-
-            # Evaluate the model on the validation data
-            predictions = self.predict(X_val)
-            mse = np.mean((y_val - predictions) ** 2)
+            mse_list = []
+            r_squared_list = []
             
-            # Calculate R-squared
-            ss_res = np.sum((y_val - predictions) ** 2)
-            ss_tot = np.sum((y_val - np.mean(y_val)) ** 2)
-            r_squared = 1 - (ss_res / ss_tot)
+            for k in range(k_folds):
+                # Assuming X and y are shuffled and split into k_folds
+                start, end = (len(X) * k // k_folds, len(X) * (k + 1) // k_folds)
+                X_val, y_val = X[start:end], y[start:end]
+                X_train = np.concatenate((X[:start], X[end:]))
+                y_train = np.concatenate((y[:start], y[end:]))
 
-            # Print the current lambda, MSE, and R-squared
-            print(f"Lambda: {lambda_param}, MSE: {mse}, R-squared: {r_squared}")
+                self.fit(X_train, y_train)
+                mse, r_squared = self.evaluate(X_val, y_val)
 
-            # Check if the current mse is better than the best mse found so far
-            if mse < best_mse or (mse == best_mse and r_squared > best_r_squared):
-                best_mse = mse
+                mse_list.append(mse)
+                r_squared_list.append(r_squared)
+
+            avg_mse = np.mean(mse_list)
+            avg_r_squared = np.mean(r_squared_list)
+
+            if avg_mse < best_mse or (avg_mse == best_mse and avg_r_squared > best_r_squared):
+                best_mse = avg_mse
                 best_lambda = lambda_param
-                best_r_squared = r_squared
+                best_r_squared = avg_r_squared
 
-        # After finding the best lambda, re-fit the model with it
+            print(f"Lambda: {lambda_param}, Avg MSE: {avg_mse:.4f}, Avg R-squared: {avg_r_squared:.4f}")
+
         self.lambda_parameter = best_lambda
-        self.fit(X_train, y_train)
-
-        # Return the best lambda, mse, and R-squared
+        self.fit(X, y)  # Refit using all data and best lambda
         return best_lambda, best_mse, best_r_squared

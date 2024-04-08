@@ -1,68 +1,60 @@
 import numpy as np
-import pandas as pd
 
 class RidgeRegression:
-    
     def __init__(self, alpha=0.1):
         self.alpha = alpha
-        self.coef_ = None
-        self.intercept_ = None
-        
-    def fit(self, X_train, y_train):
-        # Ensure X_train and y_train are numpy arrays
-        X_train, y_train = self._ensure_numpy(X_train, y_train)
-        
-        X_train_with_intercept = np.insert(X_train, 0, 1, axis=1)
-        I_matrix = np.identity(X_train_with_intercept.shape[1])
-        I_matrix[0, 0] = 0  # Do not regularize the intercept term
-        equation = np.linalg.inv(X_train_with_intercept.T @ X_train_with_intercept + self.alpha * I_matrix) @ X_train_with_intercept.T @ y_train
-        
-        self.intercept_ = equation[0]
-        self.coef_ = equation[1:]
+        self.weights = None
 
-    def predict(self, X_test):
-        # Ensure X_test is a numpy array
-        if isinstance(X_test, pd.DataFrame):
-            X_test = X_test.to_numpy()
-        
-        return np.dot(X_test, self.coef_) + self.intercept_
+    def fit(self, X, y):
+        X = np.insert(X, 0, 1, axis=1)  # Add intercept
+        I = np.eye(X.shape[1])
+        I[0, 0] = 0  # Do not regularize the intercept
+        self.weights = np.linalg.inv(X.T @ X + self.alpha * I) @ X.T @ y
 
-    def score(self, X_test, y_true):
-        # Ensure X_test and y_true are numpy arrays
-        X_test, y_true = self._ensure_numpy(X_test, y_true)
+    def predict(self, X):
+        X = np.insert(X, 0, 1, axis=1)  # Add intercept
+        return X @ self.weights
 
-        y_pred = self.predict(X_test)
-        mse = np.mean((y_true - y_pred) ** 2)
-        total_variance = np.sum((y_true - np.mean(y_true)) ** 2)
-        explained_variance = np.sum((y_pred - np.mean(y_true)) ** 2)
-        r_squared = explained_variance / total_variance
-
+    def score(self, X, y):
+        predictions = self.predict(X)
+        mse = np.mean((y - predictions) ** 2)
+        ss_tot = np.sum((y - np.mean(y)) ** 2)
+        ss_res = np.sum((y - predictions) ** 2)
+        r_squared = 1 - ss_res / ss_tot
         return mse, r_squared
 
-    def tune_and_fit(self, X_train, y_train, alphas):
+    def k_fold_cross_validation(self, X, y, k=5, alphas=[0.1]):
+        fold_size = len(X) // k
         best_alpha = None
         best_score = float('inf')
         best_r_squared = None
 
-        X_train, y_train = self._ensure_numpy(X_train, y_train)
-        print("Tuning Ridge Regression with the following alpha values:", alphas)
         for alpha in alphas:
-            self.alpha = alpha
-            self.fit(X_train, y_train)
-            mse, r_squared = self.score(X_train, y_train)
-            if mse < best_score:
-                best_score = mse
-                best_alpha = alpha
-                best_r_squared = r_squared
-            print(f"Alpha: {alpha:10}, MSE: {mse:.4f}, R-squared: {r_squared:.4f}")  
-        self.alpha = best_alpha
-        self.fit(X_train, y_train)
-        return best_alpha, best_score, best_r_squared
+            mse_scores = []
+            r2_scores = []
+            for fold in range(k):
+                start, end = fold * fold_size, (fold + 1) * fold_size
+                X_val, y_val = X[start:end], y[start:end]
+                X_train = np.concatenate([X[:start], X[end:]])
+                y_train = np.concatenate([y[:start], y[end:]])
+                
+                self.alpha = alpha
+                self.fit(X_train, y_train)
+                mse, r_squared = self.score(X_val, y_val)
 
-    def _ensure_numpy(self, X, y):
-        """Ensure X and y are numpy arrays."""
-        if isinstance(X, pd.DataFrame):
-            X = X.to_numpy()
-        if isinstance(y, (pd.Series, pd.DataFrame)):
-            y = y.to_numpy()
-        return X, y
+                mse_scores.append(mse)
+                r2_scores.append(r_squared)
+
+            avg_mse = np.mean(mse_scores)
+            avg_r_squared = np.mean(r2_scores)
+
+            if avg_mse < best_score:
+                best_score = avg_mse
+                best_alpha = alpha
+                best_r_squared = avg_r_squared
+            
+            print(f"Alpha: {alpha}, Avg MSE: {avg_mse:.4f}, Avg R-squared: {avg_r_squared:.4f}")
+
+        self.alpha = best_alpha
+        self.fit(X, y)  # Refit using the best alpha
+        return best_alpha, best_score, best_r_squared

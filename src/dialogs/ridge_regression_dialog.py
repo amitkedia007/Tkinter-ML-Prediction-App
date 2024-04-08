@@ -6,8 +6,9 @@ import numpy as np
 class RidgeRegressionDialog(tk.Toplevel):
     def __init__(self, master, X, Y, theme='#345'):
         super().__init__(master)
-        self.X = X.select_dtypes(include=[np.number]).values if X is not None else None
-        self.Y = Y.values if Y is not None else None
+        # Ensure X and Y are numpy arrays
+        self.X = np.asarray(X.select_dtypes(include=[np.number])) if X is not None else None
+        self.Y = np.asarray(Y).flatten() if Y is not None else None  # Ensure Y is 1D
         self.theme = theme
         
         self.title('Ridge Regression Training')
@@ -24,18 +25,17 @@ class RidgeRegressionDialog(tk.Toplevel):
         self.result_text.pack(padx=10, pady=(10, 20), expand=True, fill=tk.BOTH)
 
     def train_default(self):
-        # Use a fresh instance for default parameter training
         default_model = RidgeRegression()
         default_model.fit(self.X, self.Y)
         mse, r_squared = default_model.score(self.X, self.Y)
         self.display_results("Default Parameters (alpha=0.1)", mse, r_squared)
 
     def train_with_tuning(self):
-        # Use a fresh instance for hyperparameter tuning
         tuning_model = RidgeRegression()
         alphas = [0.001, 0.01, 0.1, 1, 10, 100]
-        best_alpha, best_score, best_r_squared = tuning_model.tune_and_fit(self.X, self.Y, alphas)
-        parameters_used = f"Hyperparameters (Best alpha={best_alpha})"
+        # Replace tune_and_fit with k_fold_cross_validation method
+        best_alpha, best_score, best_r_squared = tuning_model.k_fold_cross_validation(self.X, self.Y, k=5, alphas=alphas)
+        parameters_used = f"Hyperparameters using K-Fold Cross Validation (Best alpha={best_alpha})"
         self.display_results(parameters_used, best_score, best_r_squared)
 
     def display_results(self, parameters_used, mse, r_squared):

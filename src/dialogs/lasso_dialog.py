@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import numpy as np
-from model.lasso import LassoRegression  
+from model.lasso import LassoRegression
 
 class LassoDialog(tk.Toplevel):
     def __init__(self, master, X, Y, theme='#345'):
@@ -33,20 +33,14 @@ class LassoDialog(tk.Toplevel):
 
     def train_with_tuning(self):
         if self.X is not None and self.Y is not None:
-            # Splitting the dataset into training and validation sets for tuning
-            split_index = int(len(self.X) * 0.8)
-            X_train, X_val = self.X[:split_index], self.X[split_index:]
-            Y_train, Y_val = self.Y[:split_index], self.Y[split_index:]
-
             lambda_values = [0.001, 0.01, 0.1, 1, 10]  # Example lambda values for tuning
             
-            # Call tune_and_fit with the split data and lambda_values
-            best_lambda, best_mse, best_r_squared = self.model.tune_and_fit(X_train, Y_train, X_val, Y_val, lambda_values)
+            # Implement K-Fold Cross-Validation internally in tune_and_fit or manage externally
+            best_lambda, best_mse, best_r_squared = self.model.tune_and_fit(self.X, self.Y, lambda_values, k_folds=5)
             
             self.display_results(f"Hyperparameters (Best Lambda={best_lambda})", best_mse, best_r_squared)
         else:
             messagebox.showerror("Error", "Data not available or not properly formatted.")
-
 
     def display_results(self, parameters_used, mse, r_squared=None):
         self.result_text.delete('1.0', tk.END)
