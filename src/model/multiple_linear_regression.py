@@ -3,46 +3,62 @@ import pandas as pd
 
 class MultipleLinearRegression:
     def __init__(self):
-        self.coef_ = None
-        self.intercept_ = None
+        self.coef_ = None  # Coefficients of the model
+        self.intercept_ = None  # Intercept of the model
 
     def fit(self, X_train, y_train):
-        # Check if X_train is a DataFrame and convert to NumPy array
+        """
+        Fits the multiple linear regression model to the training data.
+        """
+        # Convert pandas DataFrame or Series to numpy arrays
         if isinstance(X_train, pd.DataFrame):
             X_train = X_train.values
-        # Check if y_train is a Series or DataFrame and convert to NumPy array
         if isinstance(y_train, (pd.Series, pd.DataFrame)):
             y_train = y_train.values.flatten()
 
-        # Insert a column of ones to X_train for the intercept
+        # Add an intercept column to the input features
         X_train = np.insert(X_train, 0, 1, axis=1)
 
-        # Calculate betas
+        # Calculate coefficients using the Normal Equation
         betas = np.linalg.inv(X_train.T @ X_train) @ X_train.T @ y_train
 
-        # The first beta is the intercept
+        # Assign intercept and coefficients
         self.intercept_ = betas[0]
-        # The remaining betas are the coefficients
         self.coef_ = betas[1:]
 
     def predict(self, X_test):
-        # Check if X_test is a DataFrame and convert to NumPy array
+        """
+        Predicts the target values for the given input features using the trained model.
+        """
+        # Convert pandas DataFrame to numpy array
         if isinstance(X_test, pd.DataFrame):
             X_test = X_test.values
 
-        # Insert a column of ones to X_test for the intercept
+        # Add an intercept column to the input features
         X_test = np.insert(X_test, 0, 1, axis=1)
 
-        # Calculate predictions
+        # Compute predictions
         y_pred = X_test @ np.hstack(([self.intercept_], self.coef_))
         return y_pred
 
     def score(self, X_test, y_true):
-        # Check if y_true is a Series or DataFrame and convert to NumPy array
+        """
+        Computes the Mean Squared Error (MSE) and R-squared value of the model
+        against the provided test data and true output values.
+        """
+        # Convert pandas Series or DataFrame to numpy array
         if isinstance(y_true, (pd.Series, pd.DataFrame)):
             y_true = y_true.values.flatten()
 
+        # Get model predictions
         y_pred = self.predict(X_test)
+
+        # Calculate MSE
         mse = np.mean((y_true - y_pred) ** 2)
-        r_squared = 1 - (np.sum((y_true - y_pred) ** 2) / np.sum((y_true - np.mean(y_true)) ** 2))
+
+        # Calculate R-squared
+        total_variance = np.sum((y_true - np.mean(y_true)) ** 2)
+        residual_variance = np.sum((y_true - y_pred) ** 2)
+        r_squared = 1 - (residual_variance / total_variance)
+
         return mse, r_squared

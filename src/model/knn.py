@@ -22,17 +22,20 @@ class K_Nearest_Neighbour:
         return np.array(predictions)
 
     def score(self, X_test, y_true):
-        """
-        Calculates and returns the MSE and R-squared value for the test set.
-        """
         y_pred = self.predict(X_test)
         mse = np.mean((y_true - y_pred) ** 2)
-        
         ss_res = np.sum((y_true - y_pred) ** 2)
         ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
         r_squared = 1 - (ss_res / ss_tot)
-        
         return mse, r_squared
+
+    def get_params(self, deep=True):
+        return {"k": self.k}
+
+    def set_params(self, **parameters):
+        for parameter, value in parameters.items():
+            setattr(self, parameter, value)
+        return self
 
 
     def cross_validate(self, X, y, k_values, n_splits=5):
@@ -62,17 +65,18 @@ class K_Nearest_Neighbour:
 
             current = stop
 
+        detailed_results = ""
         best_k, best_score_mse, best_score_r2 = None, float('inf'), None
 
         for k in k_values:
             avg_mse = np.mean(fold_scores_mse[k])
             avg_r2 = np.mean(fold_scores_r2[k])
-            print(f"K: {k}, Avg MSE: {avg_mse}, Avg R-squared: {avg_r2}")
+            detailed_results += f"K: {k}, Avg MSE: {avg_mse:.4f}, Avg R-squared: {avg_r2:.4f}\n"
 
             if avg_mse < best_score_mse:
                 best_k = k
                 best_score_mse = avg_mse
                 best_score_r2 = avg_r2
 
-        print(f"Best K: {best_k} with Avg MSE: {best_score_mse}, Avg R-squared: {best_score_r2}")
-        return best_k, best_score_mse, best_score_r2
+        # Return detailed string along with best scores for displaying in the GUI
+        return best_k, best_score_mse, best_score_r2, detailed_results

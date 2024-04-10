@@ -28,6 +28,8 @@ class RidgeRegression:
         best_alpha = None
         best_score = float('inf')
         best_r_squared = None
+        alphas_tested = []
+        mse_scores_for_alphas = []
 
         for alpha in alphas:
             mse_scores = []
@@ -48,13 +50,16 @@ class RidgeRegression:
             avg_mse = np.mean(mse_scores)
             avg_r_squared = np.mean(r2_scores)
 
+            alphas_tested.append(alpha)  # Store each alpha tested
+            mse_scores_for_alphas.append(avg_mse)  # Store corresponding avg MSE
+
             if avg_mse < best_score:
                 best_score = avg_mse
                 best_alpha = alpha
                 best_r_squared = avg_r_squared
-            
-            print(f"Alpha: {alpha}, Avg MSE: {avg_mse:.4f}, Avg R-squared: {avg_r_squared:.4f}")
 
         self.alpha = best_alpha
         self.fit(X, y)  # Refit using the best alpha
-        return best_alpha, best_score, best_r_squared
+
+        # Correct return to include alphas_tested and mse_scores_for_alphas for visualization
+        return best_alpha, best_score, best_r_squared, alphas_tested, mse_scores_for_alphas
